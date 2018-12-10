@@ -1,18 +1,30 @@
+**********************************-----------------****************************************
 
-************************REQUEST***************************
-api_url ===> http://226 server:3095/mailCheck/isActiveEmail
+BEFORE running the process first set your configurations in /config/config.json
 
-header:application/json
-body:{"email":email to be check} //JSON Object
+   Set your env either 'test' or 'live'
 
-************************RESPONSE***************************
+**NOTE** Please add the exact path of the file in data/words1.csv in config[env].filepath
 
-{"response":RESPONSE,"status":STATUS}  //JSON Object
+NEXT ---->
 
-STATUS may be    ---> 200 or 500
+    First run the server with 'node api/app.js env(test/live)';
+
+NEXT ---->
+    Next run the command line applicatin using 'node main.js';
+    choose :  enter 1    : synonyms
+              enter 2    : antonyms
+              enter 3    : definitions
+              enter 4    : examples
+              enter 5    : completeDictInfo
+              enter NOTA : GAME   (anything other than above)
+    ** for first 5 choices It will ask you for the word for which you want to get the info from dict.
+
+    In game choice it ask you for the guess (please consider the hint it will help you) enter your guess word there.
+
+Enjoy the game!!!!!!!!!!
 
 
 
-If status 200 RESPONSE may be  --->  "ACTIVE" or "INACTIVE" or "NOT EXIST" or "BOUNCE" ;
 
-If status 500 RESPONSE may be  --->  "SOME ERROR MESSAGE";
+

@@ -2,17 +2,18 @@
   "test": {
     "api": {
       "host": "localhost",
-      "port": 3004
+      "port": 3004,
+      "filepath": "/home/sys3016/Desktop/dictionary/data/words1.csv"
     }
   },
   "live": {
     "api": {
       "host": "",
-      "port": 0
+      "port": 0,
+      "filepath": ""
     }
   },
-    "process_variables": {
-      "env": "test"
-    }
-
+  "process_variables": {
+    "env": "test"
+  }
 }

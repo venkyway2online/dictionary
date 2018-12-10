@@ -16,58 +16,96 @@ var CsvReadableStream = require('csv-reader');
 
 var async = require('async');
 
-var words =[];
+var words = [];
 
-//var inputStream = fs.createReadStream('/home/av/Desktop/api_validate_email_140/data/words.csv', 'utf8');
+var inputStream = fs.createReadStream(config[env].api.filepath, 'utf8');
 
-//inputStream
-//  .pipe(CsvReadableStream({ parseNumbers: true, parseBooleans: true, trim: true }))
-//.on('data', function (row) {
-// words.push(row[0]);
-//})
-//.on('end', function (data) {
-//  router.use(function (req, res, next) {
-//    next();
+inputStream
+    .pipe(CsvReadableStream({parseNumbers: true, parseBooleans: true, trim: true}))
+    .on('data', function (row) {
+        words.push(row[0]);
+    })
+    .on('end', function (data) {
+        router.use(function (req, res, next) {
+            next();
 
-// });
-// });
+        });
+    });
 
 var types = {
     1: "synonyms",
     2: "antonyms",
-    3:"definitions",
-    4:"sentences"
+    3: "definitions",
+    4: "sentences",
+    5: "wordlist"
 };
 
 router.post("/getSpecificDictInfo", function (req, res) {
     var input = getInputWordFromReq(req);
 
-    if(valid(input[0]) && valid(input[1]) && validType(input[1])){
-        getRequiredData(input[0],input[1],function (err,finalData) {
-            if(err){
+    if (valid(input[0]) && valid(input[1]) && validType(input[1])) {
+        getRequiredData(input[0], input[1], function (err, finalData) {
+            if (err) {
                 res.send(err);
-            }else{
+            } else {
                 res.send(finalData);
             }
         })
-    }else{
+    } else {
         res.send('invalid input');
     }
 
 });
 
 
+// router.get("/getRandomWord",function (req,res) {
+//     getDataFromOxford('',5,function (err,output) {
+//         var wordlist = getFramedOutput(output,'wordlist');
+//         if(wordlist && wordlist.length >0){
+//             var options = {
+//                 min:  0
+//                 , max:  wordlist.length-1
+//                 , integer: true
+//             };
+//             var ind = rn(options);
+//             // res.send(wordlist[ind]);
+//             res.send('good');
+//         }else{
+//             res.send(null);
+//         }
+//
+//     })
+//
+// });
+//
+router.get("/getRandomWord", function (req, res) {
+    if (words && words.length > 0) {
+        var options = {
+            min: 0
+            , max: words.length - 1
+            , integer: true
+        };
+        var ind = rn(options);
+        // res.send(wordlist[ind]);
+        res.send(words[ind]);
+    } else {
+        res.send(null);
+    }
 
-function getRequiredData(val1,val2,cb2){
+
+});
+
+
+function getRequiredData(val1, val2, cb2) {
     getDataFromOxford(val1, val2, function (err, output) {
         var requiredData = getFramedOutput(output, types[val2]);
-        if(requiredData){
+        if (requiredData) {
             var obj = {};
             obj[types[val2]] = requiredData;
-           cb2(null,obj);
-        }else{
-           var msg = "word not found in dict";
-            cb2(msg,null);
+            cb2(null, obj);
+        } else {
+            var msg = "word not found in dict";
+            cb2(msg, null);
         }
 
     })
@@ -76,33 +114,43 @@ function getRequiredData(val1,val2,cb2){
 router.post("/getFullDict", function (req, res) {
     var input = req.body.word;
     async.parallel([
-            function(callback) {
-               getRequiredData(input,1,callback)
-            },
-            function(callback) {
-                getRequiredData(input,2,callback);
-                },
             function (callback) {
-                getRequiredData(input,3,callback);
-            },function (callback) {
-                getRequiredData(input,4,callback);
+                getRequiredData(input, 1, callback)
+            },
+            function (callback) {
+                getRequiredData(input, 2, callback);
+            },
+            function (callback) {
+                getRequiredData(input, 3, callback);
+            }, function (callback) {
+                getRequiredData(input, 4, callback);
             }
 
         ],
-        function(err, results) {
-        console.log("ok");
-        if(err){
-            res.send(err);
-        }else{
-            res.send(results);
-        }
+        function (err, results) {
+            console.log(results);
+            console.log("ok");
+            if (err) {
+                res.send(err);
+            } else {
+                // res.send(results);
+                var finalObj = {};
+
+                results.forEach(function (resss) {
+                    var key = Object.keys(resss);
+                    finalObj[key] = resss[key];
+
+                });
+                res.send(finalObj);
+
+            }
         });
 });
 
 router.post("/getWordOftheDayDict", function (req, res) {
     var options = {
-        min:  -1000
-        , max:  1000
+        min: -1000
+        , max: 1000
         , integer: true
     };
     rn(options)
@@ -128,49 +176,53 @@ function valid(input) {
 
 
 function validType(val) {
-        return [1,2,3,4].includes(val);
+    return [1, 2, 3, 4].includes(val);
 }
-
-
-
-
-
-
-
 
 
 function getFramedOutput(output, type) {
     var finalOutput = [];
-    try{
-        var lexicalEntries = JSON.parse(output).results[0].lexicalEntries;
-        lexicalEntries.forEach(function (lexicalEntry) {
-            if(type === types['4']) {
-                lexicalEntry['' + type].forEach(function (sentence) {
-                    finalOutput.push(sentence['text']);
-                })
-            }else{
-                lexicalEntry.entries.forEach(function (entry) {
-                    JSON.stringify(entry);
+    try {
+        if (type === "wordlist") {
 
-                    entry.senses.forEach(function (sense) {
-                        // finalOutput.push(sense['' + type][0])
-                        if(type === types['3']){
-                            finalOutput.push(sense['' + type][0])
-                        }
-                        else{
-                            sense['' + type].forEach(function (obj) {
-                                finalOutput.push(obj['id']);
-                            })
-                        }
+
+            var results = JSON.parse(output).results;
+            results.forEach(function (result) {
+                finalOutput.push(result.word);
+            })
+
+
+        } else {
+            var lexicalEntries = JSON.parse(output).results[0].lexicalEntries;
+            lexicalEntries.forEach(function (lexicalEntry) {
+                if (type === types['4']) {
+                    lexicalEntry['' + type].forEach(function (sentence) {
+                        finalOutput.push(sentence['text']);
+                    })
+                } else {
+                    lexicalEntry.entries.forEach(function (entry) {
+                        JSON.stringify(entry);
+
+                        entry.senses.forEach(function (sense) {
+                            // finalOutput.push(sense['' + type][0])
+                            if (type === types['3']) {
+                                finalOutput.push(sense['' + type][0])
+                            } else {
+                                sense['' + type].forEach(function (obj) {
+                                    finalOutput.push(obj['id']);
+                                })
+                            }
+
+                        })
 
                     })
+                }
+            });
+        }
 
-                })
-            }
-        });
         return finalOutput;
-    }catch (e) {
-        return null;
+    } catch (e) {
+        return [];
     }
 
 }
@@ -178,10 +230,16 @@ function getFramedOutput(output, type) {
 function getDataFromOxford(searchInput, typeFlag, cb) {
 
     var type = types[typeFlag];
+    var path = '';
 
-    var path = "/api/v1/entries/en/" + searchInput + "/" + type + "";
+    if (type === "wordlist") {
+        path = "https://od-api.oxforddictionaries.com:443/api/v1/wordlist/en/lexicalCategory%3Dverb";
+    } else {
+        path = "/api/v1/entries/en/" + searchInput + "/" + type + "";
+    }
 
-    console.log("searchInput " + searchInput);
+
+    //console.log("searchInput " + searchInput);
     var output = '';
     var error = null;
     var postRequest = {
