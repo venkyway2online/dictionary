@@ -13,5 +13,9 @@
   },
   "process_variables": {
     "env": "test"
+  },
+  "oxford_auth": {
+    "key": "52582f496e8ae6fb88c139cd2de4f875",
+    "id": "bc37d1d4"
   }
 }

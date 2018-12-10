@@ -255,8 +255,8 @@ function getDataFromOxford(searchInput, typeFlag, cb) {
         rejectUnauthorized: false,
         headers: {
             "Accept": "application/json",
-            'app_key': "52582f496e8ae6fb88c139cd2de4f875",
-            'app_id': "bc37d1d4"
+            'app_key': config.oxford_auth.key,
+            'app_id': config.oxford_auth.id
         }
     };
 
