@@ -88,6 +88,7 @@ router.get("/getRandomWord", function (req, res) {
         var ind = rn(options);
         // res.send(wordlist[ind]);
         res.send(words[ind]);
+        // res.send('celerity');
     } else {
         res.send(null);
     }
@@ -128,8 +129,8 @@ router.post("/getFullDict", function (req, res) {
 
         ],
         function (err, results) {
-            console.log(results);
-            console.log("ok");
+            // console.log(results);
+            // console.log("ok");
             if (err) {
                 res.send(err);
             } else {

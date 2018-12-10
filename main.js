@@ -3,7 +3,7 @@ var types = ["synonyms", "antonyms", "definitions", "sentences"];
 var config = require("./config/config.json");
 var env = config.process_variables.env;
 var options = {
-    url: 'http://'+config[env].api.host+':'+config[env].api.port+'/check/getSpecificDictInfo',
+    url: 'http://' + config[env].api.host + ':' + config[env].api.port + '/check/getSpecificDictInfo',
     method: 'post',
     json: true,
     body: {}
@@ -121,10 +121,10 @@ function execute(type) {
 
                     if (type === "dictInfo") {
 
-                        options.url = "http://"+config[env].api.host+":"+config[env].api.port+"/check/getFullDict";
+                        options.url = "http://" + config[env].api.host + ":" + config[env].api.port + "/check/getFullDict";
 
                     } else {
-                        options.url = "http://"+config[env].api.host+":"+config[env].api.port+"/check/getSpecificDictInfo";
+                        options.url = "http://" + config[env].api.host + ":" + config[env].api.port + "/check/getSpecificDictInfo";
                     }
                     options.body = {
                         "word": word,
@@ -164,22 +164,35 @@ function gaming() {
     // Get user input from result object.
 
 
-    var message = " game started";
+    var message = " game started \n";
+    String.prototype.shuffle = function () {
+        var a = this.split(""),
+            n = a.length;
+
+        for (var i = n - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = a[i];
+            a[i] = a[j];
+            a[j] = tmp;
+        }
+        return a.join("");
+    };
+
 
     // Display user input in console log.
     console.log(message);
+    console.log("Enter 'qqq' for quit the game \n");
     options.method = 'get';
-    options.url = "http://"+config[env].api.host+":"+config[env].api.port+"/check/getRandomWord";
+    options.url = "http://" + config[env].api.host + ":" + config[env].api.port + "/check/getRandomWord";
     request(options, function (err, respp, body) {
         if (err) {
             console.log(err);
         } else {
             var word = respp.body.toString().trim();
-            // console.log(word);
             ////////////////////// collect data for word;
 
 
-            options.url = "http://"+config[env].api.host+":"+config[env].api.port+"/check/getFullDict";
+            options.url = "http://" + config[env].api.host + ":" + config[env].api.port + "/check/getFullDict";
             options.method = 'post';
             options.body = {
                 "word": word,
@@ -192,31 +205,30 @@ function gaming() {
                     var totalInfo = respp.body;
                     if (respp.body === "word not found in dict") {
                         console.log("word not found please wait");
-                        // gaming();
                     } else {
                         var totalData = respp.body;
-                        tempHints = Object.keys(totalData);
+                        hints = generateHints(Object.keys(totalData));
 
-                        tempHints.forEach(function (tempHint) {
-                            if (orgHints.includes(tempHint) && totalData[tempHint].length >0) {
-                                hints.push(tempHint);
-                            }
-                        });
+                        checkUserInput('');
 
-                        checkUserInput();
-
-                        function checkUserInput() {
+                        function checkUserInput(jWordNow) {
                             if (hints.length > 0) {
-                                var hintNow = hintGenerator();
-                                var argg = {
-                                    min: 0
-                                    , max: totalData[hintNow].length - 1
-                                    , integer: true
-                                };
-                                var index1 = rn(argg);
-                                if (index1 > -1) {
-                                    var hintVal = totalData[hintNow][index1];
-                                    console.log("Your hint is " + hintNow + " ::: " + hintVal);
+
+                                    if (jWordNow !== '') {
+                                        console.log("Hint : Rearrange the word ::: ", jWordNow);
+                                    } else {
+                                        var hintNow = hintGenerator();
+                                        var argg = {
+                                            min: 0
+                                            , max: totalData[hintNow].length - 1
+                                            , integer: true
+                                        };
+                                        var index1 = rn(argg);
+                                        var hintVal = totalData[hintNow][index1];
+                                        console.log("Your hint is " + hintNow + " ::: " + hintVal);
+                                    }
+
+
                                     prompt.get(prompt_att2, function (err, rss) {
                                         if (err) {
                                             throw  err;
@@ -225,20 +237,55 @@ function gaming() {
                                                 console.log("correct word successfully");
                                                 // console.log(totalData);
                                             } else {
-                                                console.log("incorrect  try again");
-                                                checkUserInput();
+                                                if (rss.inputWord === "qqq") {
+                                                    console.log("your word is here  ::" + word);
+                                                    prompt.stop();
+                                                } else {
+                                                    console.log("incorrect  try again");
+                                                    jWordNow = '';
+                                                    setImmediate(function () {
+                                                        checkUserInput(jWordNow);
+                                                    })
+
+                                                }
+
                                             }
                                         }
                                     })
-                                } else {
 
-                                }
 
                             } else {
-                                console.log("you failed");
-                                console.log("your word is here  ::" + word);
-                                prompt.stop();
+
+                                hints = generateHints(Object.keys(totalData));
+                                jumbledWord(function (jWord) {
+
+                                    checkUserInput(jWord);
+                                });
+
                             }
+                        }
+
+
+                        function jumbledWord(cb) {
+                            var jWord = word.shuffle();
+                            if (word !== jWord) {
+                                cb(jWord);
+                            } else {
+                                setImmediate(function () {
+                                    jumbledWord(cb);
+                                })
+
+                            }
+                        }
+
+                        function generateHints(tempHintArr) {
+                            tempHintArr.forEach(function (tempHint) {
+                                if (orgHints.includes(tempHint) && totalData[tempHint].length > 0) {
+                                    hints.push(tempHint);
+                                }
+                            });
+
+                            return hints;
                         }
 
                         function hintGenerator() {

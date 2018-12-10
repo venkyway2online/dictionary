@@ -22,6 +22,9 @@ NEXT ---->
 
     In game choice it ask you for the guess (please consider the hint it will help you) enter your guess word there.
 
+
+**NOTE** for better experience in game please put (good,bad,like,handsome,beauty) words only in data/words1.csv .
+
 Enjoy the game!!!!!!!!!!
 
 

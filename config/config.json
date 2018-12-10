@@ -3,7 +3,7 @@
     "api": {
       "host": "localhost",
       "port": 3004,
-      "filepath": "/home/sys3016/Desktop/dictionary/data/words1.csv"
+      "filepath": "/home/av/dictionary/data/words1.csv"
     }
   },
   "live": {
