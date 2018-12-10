@@ -1,29 +1,29 @@
 var express = require('express');
 var router = express.Router();
-var logger = require('tracer').colorConsole({
-    format: '{{timestamp}} [{{title}}] {{message}} (in {{path}}:{{line}})',
-    dateformat: 'dd-mm-yyyy HH:MM:ss TT'
-});
-
 var path = require('path');
-var request = require('request');
 var https = require('https');
-var config = require('./../../config/config.json');
 var rn = require('random-number');
-
-var env = config.process_variables.env;
-
 var fs = require('fs');
 var CsvReadableStream = require('csv-reader');
-
 var async = require('async');
+var config = require('./../../config/config.json');
+var request = require('request');
 
 var words = [];
 
-var csvPath = path.join(__dirname, '..','..', 'data', 'words1.csv');
+var csvPath = path.join(__dirname, '..', '..', 'data', 'words1.csv');
 
 var inputStream = fs.createReadStream(csvPath, 'utf8');
 
+var types = {
+    1: "synonyms",
+    2: "antonyms",
+    3: "definitions",
+    4: "sentences",
+    5: "wordlist"
+};
+
+//****************************************************************************************************************************
 inputStream
     .pipe(CsvReadableStream({parseNumbers: true, parseBooleans: true, trim: true}))
     .on('data', function (row) {
@@ -36,13 +36,8 @@ inputStream
         });
     });
 
-var types = {
-    1: "synonyms",
-    2: "antonyms",
-    3: "definitions",
-    4: "sentences",
-    5: "wordlist"
-};
+
+//****************************************************************************************************************************
 
 router.post("/getSpecificDictInfo", function (req, res) {
     var input = getInputWordFromReq(req);
@@ -50,38 +45,19 @@ router.post("/getSpecificDictInfo", function (req, res) {
     if (valid(input[0]) && valid(input[1]) && validType(input[1])) {
         getRequiredData(input[0], input[1], function (err, finalData) {
             if (err) {
-                res.send(err);
+
+                res.send(setErrorResponseBody(err));
             } else {
-                res.send(finalData);
+                res.send(setDataResponseBody(finalData));
             }
         })
     } else {
-        res.send('invalid input');
+        res.send(setErrorResponseBody('invalid input'));
     }
 
 });
 
-
-// router.get("/getRandomWord",function (req,res) {
-//     getDataFromOxford('',5,function (err,output) {
-//         var wordlist = getFramedOutput(output,'wordlist');
-//         if(wordlist && wordlist.length >0){
-//             var options = {
-//                 min:  0
-//                 , max:  wordlist.length-1
-//                 , integer: true
-//             };
-//             var ind = rn(options);
-//             // res.send(wordlist[ind]);
-//             res.send('good');
-//         }else{
-//             res.send(null);
-//         }
-//
-//     })
-//
-// });
-//
+//****************************************************************************************************************************
 router.get("/getRandomWord", function (req, res) {
     if (words && words.length > 0) {
         var options = {
@@ -90,31 +66,16 @@ router.get("/getRandomWord", function (req, res) {
             , integer: true
         };
         var ind = rn(options);
-        // res.send(wordlist[ind]);
-        res.send(words[ind]);
-        // res.send('celerity');
+        res.send(setDataResponseBody(words[ind]));
     } else {
-        res.send(null);
+        res.send(setErrorResponseBody(null));
     }
 
 
 });
 
+//****************************************************************************************************************************
 
-function getRequiredData(val1, val2, cb2) {
-    getDataFromOxford(val1, val2, function (err, output) {
-        var requiredData = getFramedOutput(output, types[val2]);
-        if (requiredData) {
-            var obj = {};
-            obj[types[val2]] = requiredData;
-            cb2(null, obj);
-        } else {
-            var msg = "word not found in dict";
-            cb2(msg, null);
-        }
-
-    })
-}
 
 router.post("/getFullDict", function (req, res) {
     var input = req.body.word;
@@ -130,73 +91,56 @@ router.post("/getFullDict", function (req, res) {
             }, function (callback) {
                 getRequiredData(input, 4, callback);
             }
-
         ],
         function (err, results) {
-            // console.log(results);
-            // console.log("ok");
             if (err) {
-                res.send(err);
+                res.send(setErrorResponseBody(err));
             } else {
-                // res.send(results);
                 var finalObj = {};
 
                 results.forEach(function (resss) {
                     var key = Object.keys(resss);
                     finalObj[key] = resss[key];
-
                 });
-                res.send(finalObj);
+                res.send(setDataResponseBody(finalObj));
 
             }
         });
 });
 
-router.post("/getWordOftheDayDict", function (req, res) {
-    var options = {
-        min: -1000
-        , max: 1000
-        , integer: true
-    };
-    rn(options)
-});
+//****************************************************************************************************************************
+function getRequiredData(val1, val2, cb2) {
+    getDataFromOxford(val1, val2, function (err, output) {
+        var requiredData = getFramedOutput(output, types[val2]);
+        if (requiredData) {
+            var obj = {};
+            obj[types[val2]] = requiredData;
+            cb2(null, obj);
+        } else {
+            var msg = "word not found in dict";
+            cb2(msg, null);
+        }
 
-
-router.post("/wordGame", function (req, res) {
-
-});
-
-
-function getInputWordFromReq(req) {
-    var out = [];
-    out.push(req.body.word);
-    out.push(req.body.type);
-    return out;
+    })
 }
 
 
-function valid(input) {
-    return input !== null && input !== undefined;
-}
 
 
-function validType(val) {
-    return [1, 2, 3, 4].includes(val);
-}
+
+
+//****************************************************************************************************************************
+
 
 
 function getFramedOutput(output, type) {
     var finalOutput = [];
     try {
         if (type === "wordlist") {
-
-
             var results = JSON.parse(output).results;
             results.forEach(function (result) {
                 finalOutput.push(result.word);
             })
-
-
         } else {
             var lexicalEntries = JSON.parse(output).results[0].lexicalEntries;
             lexicalEntries.forEach(function (lexicalEntry) {
@@ -206,10 +150,7 @@ function getFramedOutput(output, type) {
                     })
                 } else {
                     lexicalEntry.entries.forEach(function (entry) {
-                        JSON.stringify(entry);
-
                         entry.senses.forEach(function (sense) {
-                            // finalOutput.push(sense['' + type][0])
                             if (type === types['3']) {
                                 finalOutput.push(sense['' + type][0])
                             } else {
@@ -231,20 +172,17 @@ function getFramedOutput(output, type) {
     }
 
 }
+//****************************************************************************************************************************
+
 
 function getDataFromOxford(searchInput, typeFlag, cb) {
-
     var type = types[typeFlag];
     var path = '';
-
     if (type === "wordlist") {
         path = "https://od-api.oxforddictionaries.com:443/api/v1/wordlist/en/lexicalCategory%3Dverb";
     } else {
         path = "/api/v1/entries/en/" + searchInput + "/" + type + "";
     }
-
-
-    //console.log("searchInput " + searchInput);
     var output = '';
     var error = null;
     var postRequest = {
@@ -259,7 +197,6 @@ function getDataFromOxford(searchInput, typeFlag, cb) {
             'app_id': config.oxford_auth.id
         }
     };
-
     var request = https.request(postRequest, function (response) {
         response.on("data", function (data) {
             output = output + data;
@@ -269,7 +206,6 @@ function getDataFromOxford(searchInput, typeFlag, cb) {
         });
     });
 
-
     request.on('error', function (error) {
         console.log('problem with request: ' + error.message);
         cb(error.message, output);
@@ -278,5 +214,63 @@ function getDataFromOxford(searchInput, typeFlag, cb) {
     request.write(JSON.stringify(path));
 
 }
+//****************************************************************************************************************************
+
+function getInputWordFromReq(req) {
+    var out = [];
+    out.push(req.body.word);
+    out.push(req.body.type);
+    return out;
+}
+//****************************************************************************************************************************
+
+
+function valid(input) {
+    return input !== null && input !== undefined;
+}
+//****************************************************************************************************************************
+
+
+function validType(val) {
+    return [1, 2, 3, 4].includes(val);
+}
+
+
+function setDataResponseBody(data){
+    var response = {};
+    response.status = 200;
+    response.data = data;
+    return response;
+}
+
+
+function setErrorResponseBody(err){
+    var response = {};
+    response.status = 500;
+    response.error = err;
+    return response;
+}
+
+//****************************************************************************************************************************
+
+// router.get("/getRandomWord",function (req,res) {
+//     getDataFromOxford('',5,function (err,output) {
+//         var wordlist = getFramedOutput(output,'wordlist');
+//         if(wordlist && wordlist.length >0){
+//             var options = {
+//                 min:  0
+//                 , max:  wordlist.length-1
+//                 , integer: true
+//             };
+//             var ind = rn(options);
+//             // res.send(wordlist[ind]);
+//             res.send('good');
+//         }else{
+//             res.send(null);
+//         }
+//
+//     })
+//
+// });
 
 module.exports = router;

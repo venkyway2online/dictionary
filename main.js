@@ -2,8 +2,11 @@ const request = require('request');
 var types = ["synonyms", "antonyms", "definitions", "sentences"];
 var config = require("./config/config.json");
 var env = config.process_variables.env;
+var apiHost = config[env].api.host;
+var apiPort = config[env].api.port;
+
 var options = {
-    url: 'http://' + config[env].api.host + ':' + config[env].api.port + '/check/getSpecificDictInfo',
+    url: 'http://' + apiHost + ':' + apiPort + '/check/getSpecificDictInfo',
     method: 'post',
     json: true,
     body: {}
@@ -22,11 +25,8 @@ var prompt = require('prompt');
 // This json object is used to configure what data will be retrieved from command line.
 var prompt_attributes = [
     {
-        // The fist input text is assigned to username variable.
         name: 'word',
-        // The username must match below regular expression.
         validator: /^[a-zA-Z\s\-]+$/,
-        // If username is not valid then prompt below message.
         warning: 'word not valid, it can only contains letters, spaces, or dashes'
     }
 ];
@@ -34,14 +34,6 @@ var prompt_attributes = [
 var prompt_att2 = [
     {
         name: 'inputWord'
-    }
-];
-var prompt_attributes1 = [
-    {
-        // The fist input text is assigned to username variable.
-        name: 'game',
-        // The username must match below regular expression.
-        // If username is not valid then prompt below message.
     }
 ];
 
@@ -54,10 +46,11 @@ var chooseExecution = [
 
 // Start the prompt to read user input.
 prompt.start();
-console.log("EMPTY WORD  FOR EXIT \n");
+
 main();
 
 function main() {
+    console.log("EMPTY WORD  FOR EXIT \n");
     console.log(" enter 1    : synonyms \n enter 2    : antonyms \n enter 3    : definitions \n enter 4    : examples \n enter 5    : completeDictInfo \n enter NOTA : GAME"
     );
     prompt.get(chooseExecution, function (err, res) {
@@ -97,8 +90,6 @@ function valid(value) {
     return value !== undefined && value !== null;
 }
 
-// execute();
-// gaming();
 function execute(type) {
 
 // Prompt and get user input then display those data in console.
@@ -112,19 +103,17 @@ function execute(type) {
 
 
             if (word !== '' && type !== '') {
-                console.log('Command-line received data:');
-                var message = "  word : " + word + " , type : " + type + " ";
 
+                var message = "  word : " + word + " , type : " + type + " ";
                 // Display user input in console log.
                 console.log(message);
+
                 if (Object.keys(typeObj).includes(type)) {
 
                     if (type === "dictInfo") {
-
-                        options.url = "http://" + config[env].api.host + ":" + config[env].api.port + "/check/getFullDict";
-
+                        options.url = "http://" + apiHost + ":" + apiPort + "/check/getFullDict";
                     } else {
-                        options.url = "http://" + config[env].api.host + ":" + config[env].api.port + "/check/getSpecificDictInfo";
+                        options.url = "http://" + apiHost + ":" + apiPort + "/check/getSpecificDictInfo";
                     }
                     options.body = {
                         "word": word,
@@ -134,7 +123,16 @@ function execute(type) {
                         if (err) {
                             console.log(err);
                         } else {
-                            console.log(respp.body);
+
+                            if(respp.body.status === 500){
+                                console.log(respp.body.error);
+                            }else if(respp.body.status === 200){
+                                console.log(respp.body.data);
+                            }else{
+                                console.log('invalid response from server');
+                                prompt.stop();
+                            }
+
                             setImmediate(function () {
 
                                 console.log("\n \n \nEMPTY WORD  FOR EXIT");
@@ -158,13 +156,15 @@ function execute(type) {
 
 
 function gaming() {
+
     var orgHints = ['synonyms', 'antonyms', 'definitions'];
     var hints = [];
+    var message = " GAME STARTED \n";
+    console.log(message);
+    console.log("Enter 'qqq' for quit the game \n");
 
-    // Get user input from result object.
-
-
-    var message = " game started \n";
+// **************************************************************************************************************
+    //FOR SHUFFLING STRINGS
     String.prototype.shuffle = function () {
         var a = this.split(""),
             n = a.length;
@@ -177,95 +177,112 @@ function gaming() {
         }
         return a.join("");
     };
+//****************************************************************************************************************
 
-
-    // Display user input in console log.
-    console.log(message);
-    console.log("Enter 'qqq' for quit the game \n");
     options.method = 'get';
-    options.url = "http://" + config[env].api.host + ":" + config[env].api.port + "/check/getRandomWord";
+    options.url = "http://" + apiHost + ":" + apiPort + "/check/getRandomWord";
+
+    //CALL GET FOR FETCH RANDOM WARD
     request(options, function (err, respp, body) {
         if (err) {
             console.log(err);
         } else {
-            var word = respp.body.toString().trim();
-            ////////////////////// collect data for word;
 
+            if(respp.body.status === 500){
+                console.log(respp.body.error);
+                console.log("no word found in dict some problem is here ");
+                prompt.stop();
+            }else if(respp.body.status === 200){
+                var word = respp.body.data.toString().trim();
+            }else{
+                console.log('invalid response from server');
+                prompt.stop();
+            }
 
-            options.url = "http://" + config[env].api.host + ":" + config[env].api.port + "/check/getFullDict";
+            options.url = "http://" + apiHost + ":" + apiPort + "/check/getFullDict";
             options.method = 'post';
             options.body = {
                 "word": word,
                 "type": 5
             };
+
+
+            //FETCH ALL INFORMATION OF A WORD FROM DICT API
             request(options, function (err, respp, body) {
                 if (err) {
                     console.log(err);
                 } else {
-                    var totalInfo = respp.body;
-                    if (respp.body === "word not found in dict") {
+
+                    if(respp.body.status === 500){
+                        console.log(respp.body.error);
+                    }else if(respp.body.status === 200){
+                        var totalData = respp.body.data;
+                    }else{
+                        console.log('invalid response from server');
+                        prompt.stop();
+                    }
+
+
+                    if (totalData === "word not found in dict") {
                         console.log("word not found please wait");
                     } else {
-                        var totalData = respp.body;
+
                         hints = generateHints(Object.keys(totalData));
 
+//**********************************************************************************************************************
                         checkUserInput('');
+
 
                         function checkUserInput(jWordNow) {
                             if (hints.length > 0) {
 
-                                    if (jWordNow !== '') {
-                                        console.log("Hint : Rearrange the word ::: ", jWordNow);
+                                if (jWordNow !== '') {
+                                    console.log("Hint : Rearrange the word ::: ", jWordNow);
+                                } else {
+                                    var hintNow = hintGenerator();
+                                    var argg = {
+                                        min: 0
+                                        , max: totalData[hintNow].length - 1
+                                        , integer: true
+                                    };
+                                    var index1 = rn(argg);
+                                    var hintVal = totalData[hintNow][index1];
+                                    console.log("Your hint is " + hintNow + " ::: " + hintVal);
+                                }
+                                prompt.get(prompt_att2, function (err, rss) {
+                                    if (err) {
+                                        throw  err;
                                     } else {
-                                        var hintNow = hintGenerator();
-                                        var argg = {
-                                            min: 0
-                                            , max: totalData[hintNow].length - 1
-                                            , integer: true
-                                        };
-                                        var index1 = rn(argg);
-                                        var hintVal = totalData[hintNow][index1];
-                                        console.log("Your hint is " + hintNow + " ::: " + hintVal);
-                                    }
-
-
-                                    prompt.get(prompt_att2, function (err, rss) {
-                                        if (err) {
-                                            throw  err;
+                                        if (rss.inputWord === word) {
+                                            console.log("correct word successfully");
+                                            // console.log(totalData);
                                         } else {
-                                            if (rss.inputWord === word) {
-                                                console.log("correct word successfully");
-                                                // console.log(totalData);
+                                            if (rss.inputWord === "qqq") {
+                                                console.log("your word is here  ::" + word);
+                                                prompt.stop();
                                             } else {
-                                                if (rss.inputWord === "qqq") {
-                                                    console.log("your word is here  ::" + word);
-                                                    prompt.stop();
-                                                } else {
-                                                    console.log("incorrect  try again");
-                                                    jWordNow = '';
-                                                    setImmediate(function () {
-                                                        checkUserInput(jWordNow);
-                                                    })
-
-                                                }
-
+                                                console.log("incorrect  try again");
+                                                jWordNow = '';
+                                                setImmediate(function () {
+                                                    checkUserInput(jWordNow);
+                                                })
                                             }
                                         }
-                                    })
-
+                                    }
+                                })
 
                             } else {
 
                                 hints = generateHints(Object.keys(totalData));
                                 jumbledWord(function (jWord) {
-
                                     checkUserInput(jWord);
                                 });
 
                             }
                         }
 
-
+//*****************************************************************************************************************
+                        // internal functions
                         function jumbledWord(cb) {
                             var jWord = word.shuffle();
                             if (word !== jWord) {
@@ -278,6 +295,8 @@ function gaming() {
                             }
                         }
 
+
+//**********************************************************************************************************************
                         function generateHints(tempHintArr) {
                             tempHintArr.forEach(function (tempHint) {
                                 if (orgHints.includes(tempHint) && totalData[tempHint].length > 0) {
@@ -287,7 +306,7 @@ function gaming() {
 
                             return hints;
                         }
-
+//**********************************************************************************************************************
                         function hintGenerator() {
                             var argss = {
                                 min: 0
@@ -300,15 +319,11 @@ function gaming() {
                             hints.splice(ind, 1);
                             return hintType;
                         }
-
+//**********************************************************************************************************************
                     }
 
                 }
             });
-
-
-            ////////////////////////////////////////////////////////////
-
 
         }
     });
