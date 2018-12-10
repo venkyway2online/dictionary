@@ -1,0 +1,18 @@
+
+************************REQUEST***************************
+api_url ===> http://226 server:3095/mailCheck/isActiveEmail
+
+header:application/json
+body:{"email":email to be check} //JSON Object
+
+************************RESPONSE***************************
+
+{"response":RESPONSE,"status":STATUS}  //JSON Object
+
+STATUS may be    ---> 200 or 500
+
+
+
+If status 200 RESPONSE may be  --->  "ACTIVE" or "INACTIVE" or "NOT EXIST" or "BOUNCE" ;
+
+If status 500 RESPONSE may be  --->  "SOME ERROR MESSAGE";

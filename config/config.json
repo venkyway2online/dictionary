@@ -1,0 +1,18 @@
+{
+  "test": {
+    "api": {
+      "host": "localhost",
+      "port": 3004
+    }
+  },
+  "live": {
+    "api": {
+      "host": "",
+      "port": 0
+    }
+  },
+    "process_variables": {
+      "env": "test"
+    }
+
+}

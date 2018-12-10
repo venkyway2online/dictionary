@@ -1,0 +1,22 @@
+{
+  "name": "command_line_dictionary",
+  "version": "1.0.0",
+  "description": "get command line various dict types from oxford",
+  "main": "main.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "author": "venkatesh latchireddi",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "csv-reader": "^1.0.3",
+    "express": "^4.16.4",
+    "https": "^1.0.0",
+    "morgan": "^1.9.1",
+    "path": "^0.12.7",
+    "random-number": "0.0.9",
+    "request": "^2.88.0",
+    "tracer": "^0.9.6"
+  }
+}

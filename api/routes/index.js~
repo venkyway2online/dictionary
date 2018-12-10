@@ -1,0 +1,596 @@
+var express = require('express');
+var router = express.Router();
+var path = require('path');
+var moment = require('moment');
+scripto = require('redis-scripto');
+var difflib = require('difflib');
+var config = require("../../config/" + process.argv[2] + "/config.json");
+var MongoClient = require('mongodb').MongoClient;
+var DB, coll, coll1;
+var redis = require('redis');
+// console.log(config);
+var client = redis.createClient(config.redis.port, config.redis.host);
+// client.auth(config.redis.password);
+client.on("error", function (err) {
+    throw new Error(err)
+});
+var scriptManager = new scripto(client); // creates new scripto manager
+scriptManager.loadFromDir("./lua"); // load lua scripts from directory
+var func_name = "process";
+client.on('connect', function () {
+    console.log('connected');
+});
+var elasticsearch = require('elasticsearch');
+var client1 = new elasticsearch.Client({
+    host: config.elasticsearch.host + ":" + config.elasticsearch.port,
+    // log: 'trace'
+});
+var url = `mongodb://${config.mongodb.username}:${config.mongodb.password}@${config.mongodb.host}:${config.mongodb.port}/${config.mongodb.db}`
+MongoClient.connect(url, function (err, db) {
+    if (err) throw new Error(err);
+    else {
+        console.log("connected successfully");
+        DB = db;
+    }
+});
+var initiate = function () {
+
+}
+router.use(function (req, res, next) {
+
+    //some initiations
+    next();
+});
+
+router.post('/getMasterTerms', function (req, res) {
+    var x1 = req.body.term
+    if (x1 == "") {
+        res.send([])
+    }
+    else {
+        client1.search({
+                index: "master",
+                body: {
+                    "query": {
+                        "match_phrase_prefix": {
+                            "term": {
+                                "query": "QDXHLK" + x1,
+                                "max_expansions": x1.length - 1
+                            }
+                        }
+                    }
+                }
+
+            },
+            function (err, respp) {
+                if (err) {
+                    throw new Error(err)
+                }
+
+                else if (!respp || !respp.hits || !respp.hits.hits[0]) {
+                    res.send([])
+                }
+                else {
+                    var relateArray = []
+                    // console.log(respp);
+                    var result = respp.hits.hits;
+                    console.log(result)
+                    for (var i = 0; i <= result.length; i++) {
+                        if (i == result.length) {
+                            res.send(relateArray)
+                        }
+                        else {
+                            relateArray.push({
+                                term: result[i]._source.term.substring(6, result[i]._source.term.length),
+                                id: result[i]._source.id
+                            })
+                        }
+                    }
+
+
+                }
+            })
+    }
+})
+
+
+router.post('/getSimilarity', function (req, res) {
+    var x1 = req.body.term;
+    if (x1 == undefined) {
+        x1 = ""
+    }
+    ;
+    var x2 = parseInt(req.body.clId);
+    var x4 = req.body.apiKey;
+    var x5 = req.body.past;
+    var remaining = 5;
+    var relateArray = [];
+    var rttt = [];
+    rttt = x5;
+    var count = 0;
+    for (var o = 0; o < x5.length; o++) {
+        if (x5[o].tId != null) {
+            count = count + 1;
+        }
+        else {
+        }
+    }
+    if (x5.length == count) {
+        start();
+
+    }
+    else {
+        res.send(402);
+
+    }
+
+    function start() {
+        DB.collection("clients").findOne({clId: x2}, function (err, resi) {
+            if (err) {
+                throw new Error(err);
+            }
+            else if (resi) {
+                if (resi.apiKey == x4) {
+                    // console.log("hellooo")
+                    call(x5)
+                }
+                else {
+                    res.send(401);
+                }
+            }
+            else {
+                res.send(401);
+            }
+        });
+
+    }
+
+
+    function send_response(globArray) {
+        var final_send = [];
+        for (var k = 0; k <= globArray.length; k++) {
+            if (k == globArray.length) {
+                var final_result = [];
+                var id_arr1 = [];
+                console.log(final_send.length);
+                for (var m = 0; m <= final_send.length; m++) {
+                    if (m == final_send.length) {
+                        console.log("final array ", final_result);
+                        var resArry = [];
+                        var refObj = {};
+                        for (var i = 0; i < final_result.length; i++) {
+                            var obj = final_result[i];
+                            resArry.push(obj);
+                            var index = resArry.length - 1;
+                            refObj[obj.id] = index;
+                        }
+
+
+                        DB.collection("terms").find({tId: {$in: id_arr1}}).toArray(function (err, rep2) {
+                            console.log("rep2", rep2);
+                            for (var i = 0; i <= rep2.length; i++) {
+                                if (i == rep2.length) {
+                                    console.log("resss_array", resArry);
+                                    res.send(resArry);
+                                }
+                                else {
+                                    var dbObj = rep2[i];
+                                    resArry[refObj[dbObj.tId]].desc = dbObj.desc;
+                                }
+
+                            }
+
+
+                        })
+
+
+                    }
+                    else {
+                        if (!isExists(rttt, final_send[m].term)) {
+                            id_arr1.push(final_send[m].id);
+                            final_result.push({term: final_send[m].term, id: final_send[m].id});
+                        }
+                    }
+                }
+
+            }
+            else {
+                final_send.push({
+                    term: globArray[k].term.substring(6, globArray[k].term.length),
+                    id: globArray[k].id
+                })
+
+            }
+        }
+
+
+    }
+
+    function getSimilarTerms(limit, relateArray, recentwordObj, callback) {
+        console.log("get similar terms");
+        console.log("recent object", recentwordObj);
+        DB.collection("terms").findOne({
+            clId: x2,
+            "term": recentwordObj.term
+        }, function (err, resi2) {
+            if (resi2) {
+                ind = x2 + ":term" + resi2.tId;
+                client1.search({
+                    index: ind,
+                    body: {
+                        "sort": [{score: "desc"}],
+
+                        "query": {
+                            "match_phrase_prefix": {
+                                "keyword": {
+                                    "query": "QDXHLK" + x1
+                                }
+                            }
+                        }
+                    }
+                }, function (err, respp) {
+                    console.log("response", respp)
+                    if (err) {
+                        if (err.displayName == "NotFound") {
+                            res.send([]);
+                            //getSimilarTerms(limit, relateArray, recentwordObj, callback)
+                        }
+                        else {
+                            throw new Error(err);
+                        }
+
+                    }
+                    else if (!respp || !respp.hits || !respp.hits.hits[0]) {
+                        return callback(relateArray)
+                    }
+                    else {
+                        var result = respp.hits.hits;
+                        console.log("relate Array", result)
+                        for (var i = 0; i < result.length; i++) {
+                            if (limit > 0 && !isExists(relateArray, result[i]._source.keyword)) {
+
+                                relateArray.push({term: result[i]._source.keyword, id: result[i]._source.tId})
+                                limit--;
+
+                                remaining--;
+                            }
+
+                        }
+                        return callback(relateArray);
+                    }
+                })
+
+            }
+            else {
+                return callback(relateArray);
+
+            }
+        })
+    }
+
+
+    function relate(recentwords, relateArray) {
+        var i = 0;
+
+
+        function rotate(i) {
+            console.log("rotate");
+            var limit = remaining / (recentwords.length);
+            getSimilarTerms(limit, relateArray, recentwords[i], function (relateArray) {
+                i++;
+
+
+                if (remaining > 0 && i < recentwords.length) {
+                    rotate(i);
+                }
+                else {
+                    console.log("----------------------", relateArray)
+                    if (relateArray.length < 5) {
+                        console.log("relate length less than six go to globe");
+                        glob(relateArray);
+
+                    }
+                    else {
+                        send_response(relateArray);
+                    }
+
+                }
+            })
+        }
+
+        rotate(i);
+    }
+
+    function glob(globArray) {
+        console.log("globe");
+        client1.search({
+            index: x2,
+            body: {
+
+                "sort": [{score: "desc"}],
+
+                "query": {
+                    "match_phrase_prefix": {
+                        "term": {
+                            "query": "QDXHLK" + x1,
+                            "max_expansions": 6
+                        }
+                    }
+                }
+            }
+
+        }, function (err, resppp) {
+            if (err) {
+                // throw new Error(err);
+                if (err.displayName == "NotFound") {
+                    res.send([]);
+                }
+                else {
+                    throw new Error(err);
+                }
+            }
+
+            else if (!resppp || !resppp.hits || !resppp.hits.hits[0]) {
+                send_response(globArray);
+
+            }
+            else {
+                var result = resppp.hits.hits;
+                console.log(JSON.stringify(result));
+                var limit = remaining;
+                for (var i = 0; i < result.length; i++) {
+                    if (limit > 0 && (!isExists(globArray, result[i]._source.term))) {
+                        globArray.push({term: result[i]._source.term, id: result[i]._source.id})
+                        limit--;
+                        remaining--;
+                    }
+                }
+                send_response(globArray);
+            }
+        })
+
+    }
+
+
+    function isExists(arrayOfObj, term) {
+        var res = false;
+        for (var i = 0; i < arrayOfObj.length; i++) {
+            if (arrayOfObj[i].term == term) {
+                res = true;
+                break;
+            }
+        }
+        return res;
+    }
+
+    function call(data) {
+
+        if (data.length > 0) {
+            console.log("past datt", data);
+            relate(data, relateArray);
+        }
+        else {
+            glob(relateArray);
+        }
+    }
+})
+
+
+router.post('/updateSimilarTerms', function (req, res) {
+    var final_res = [];
+    var y1 = parseInt(req.body.clId);
+    var y2 = req.body.term;
+    var y3 = req.body.apiKey;
+    var list = [];
+    var count = 0;
+    for (var o = 0; o < y2.length; o++) {
+        list.push(y2[o].tId);
+        if (typeof y2[o].desc == "string" && y2[o].tId != null) {
+            count = count + 1;
+        }
+        else {
+        }
+    }
+    if (y2.length == count) {
+        start();
+
+    }
+    else {
+        res.send(402);
+
+    }
+
+    function start() {
+        DB.collection("clients").findOne({clId: y1}, function (err, resi) {
+            if (resi) {
+                if (resi.apiKey == y3) {
+                    var arrlen = y2.length;
+
+                    function ins(i) {
+                        if (i == arrlen) {
+                            res.send("ok");
+                        }
+                        else {
+                            setImmediate(
+                                function () {
+                                    in_arr(y1, y2[i].term, y2[i].tId, y2[i].desc, function () {
+                                        ins(++i);
+
+                                    });
+
+                                }
+                            )
+                        }
+
+                    }
+
+                    var i = -1
+                    ins(++i);
+
+                }
+                else {
+                    return res.send(401);
+                }
+            }
+            else {
+                res.send(401);
+            }
+        });
+    }
+
+    function up1(clId1, term1, termId1, cb2) {
+        var key_inc = "term_scores" + clId1;
+        client.hincrby(key_inc, termId1, 1, function (err, reply) {
+            client1.index({
+                index: clId1,
+                type: 'global_words',
+                id: termId1,
+                body: {
+                    term: "QDXHLK" + term1,
+                    score: reply,
+                    id: termId1
+                }
+            }, function (error, response) {
+
+                update(termId1, list, cb2)
+
+
+            })
+
+
+        })
+
+    }
+
+
+    function update(termId2, list1, cb3) {
+
+        function root(y_id, cb7) {
+            DB.collection("item_similarity").updateOne({
+                clId: y1,
+                itemIdX: termId2,
+                itemIdY: y_id
+            }, {$set: {status: 0}, $inc: {count: 1}}, function (err, res2) {
+                if (err) throw new Error(err);
+                else if (res2.result.nModified == 0) {
+                    DB.collection("item_similarity").insertOne({
+                        clId: y1,
+                        itemIdX: termId2,
+                        itemIdY: y_id,
+                        count: 1,
+                        status: 0
+
+                    }, function (err, ressssss) {
+                        if (err) {
+                            if (err.code == 11000) {
+                                root(y_id, cb7);
+
+                            }
+                            else {
+                                throw new Error(err);
+                            }
+
+                        }
+                        else {
+                            cb7();
+                        }
+
+
+                    })
+                }
+                else {
+                    cb7();
+
+                }
+            })
+        }
+
+        function next(b) {
+            if (b == list1.length) {
+                cb3();
+            }
+            else {
+                setImmediate(function () {
+                    if (list1[b] == termId2) {
+                        next(++b);
+                    }
+                    else {
+                        root(list1[b], function () {
+                            next(++b);
+
+                        })
+                    }
+
+                })
+            }
+        }
+
+
+        var b = -1;
+        next(++b);
+    }
+
+    function in_arr(client, word, tId1, desc1, cb) {
+        insert(word, tId1, desc1, cb);
+    }
+
+    function insert(word1, tId2, desc2, cb1) {
+        client.incr('num', function (err, reply) {
+            if (err) {
+                throw new Error(err);
+            }
+            else {
+                DB.collection("terms").insertOne({
+                    _id: parseInt(reply),
+                    clId: y1,
+                    tId: tId2,
+                    term: word1,
+                    desc: desc2,
+                    status: 0
+                }, function (err, res3) {
+                    if (err) {
+                        if (err.code == 11000) {
+                            up1(y1, word1, tId2, cb1);
+
+                        }
+                        else {
+                            throw new Error(err);
+                        }
+
+                    }
+                    else {
+                        client1.index({
+                            index: y1,
+                            type: 'global_words',
+                            id: tId2,
+                            body: {
+                                id: tId2,
+                                term: "QDXHLK" + word1,
+                                score: 0
+                            }
+                        }, function (error, response) {
+                            if (error) {
+                                throw new Error(error);
+                            }
+                            var key_inc1 = "term_scores" + y1;
+                            client.hset(key_inc1, tId2, 0, function (err, reply) {
+                                if (err) {
+                                    throw new Error(err);
+                                }
+                                final_res.push({term: word1, id: tId2});
+                                update(tId2, list, cb1);
+                            });
+
+                        });
+
+                    }
+                })
+            }
+
+        });
+
+
+    }
+
+});
+module.exports = router;
