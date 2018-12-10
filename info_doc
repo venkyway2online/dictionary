@@ -4,8 +4,6 @@ BEFORE running the process first set your configurations in /config/config.json
 
    Set your env either 'test' or 'live'
 
-**NOTE** Please add the exact path of the file in data/words1.csv in config[env].filepath
-
 NEXT ---->
 
     First run the server with 'node api/app.js env(test/live)';

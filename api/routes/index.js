@@ -4,6 +4,8 @@ var logger = require('tracer').colorConsole({
     format: '{{timestamp}} [{{title}}] {{message}} (in {{path}}:{{line}})',
     dateformat: 'dd-mm-yyyy HH:MM:ss TT'
 });
+
+var path = require('path');
 var request = require('request');
 var https = require('https');
 var config = require('./../../config/config.json');
@@ -18,7 +20,9 @@ var async = require('async');
 
 var words = [];
 
-var inputStream = fs.createReadStream(config[env].api.filepath, 'utf8');
+var csvPath = path.join(__dirname, '..','..', 'data', 'words1.csv');
+
+var inputStream = fs.createReadStream(csvPath, 'utf8');
 
 inputStream
     .pipe(CsvReadableStream({parseNumbers: true, parseBooleans: true, trim: true}))
