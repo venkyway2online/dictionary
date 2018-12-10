@@ -14,55 +14,89 @@ var env = config.process_variables.env;
 var fs = require('fs');
 var CsvReadableStream = require('csv-reader');
 
+var async = require('async');
+
 var words =[];
 
-var inputStream = fs.createReadStream('/home/av/Desktop/api_validate_email_140/data/words.csv', 'utf8');
+//var inputStream = fs.createReadStream('/home/av/Desktop/api_validate_email_140/data/words.csv', 'utf8');
 
-inputStream
-    .pipe(CsvReadableStream({ parseNumbers: true, parseBooleans: true, trim: true }))
-    .on('data', function (row) {
-       words.push(row[0]);
-    })
-    .on('end', function (data) {
-        router.use(function (req, res, next) {
-            next();
+//inputStream
+//  .pipe(CsvReadableStream({ parseNumbers: true, parseBooleans: true, trim: true }))
+//.on('data', function (row) {
+// words.push(row[0]);
+//})
+//.on('end', function (data) {
+//  router.use(function (req, res, next) {
+//    next();
 
-        });
-    });
+// });
+// });
 
 var types = {
     1: "synonyms",
-    2: "antonyms"
+    2: "antonyms",
+    3:"definitions",
+    4:"sentences"
 };
 
-router.post("/getSynonyms", function (req, res) {
-    var word = getInputWordFromReq(req);
-    getDataFromOxford(word, types["2"], function (err, output) {
-        var synonyms = getFramedOutput(output, types["2"]);
-        if(synonyms){
-            logger.log(synonyms);
+router.post("/getSpecificDictInfo", function (req, res) {
+    var input = getInputWordFromReq(req);
+
+    if(valid(input[0]) && valid(input[1]) && validType(input[1])){
+        getRequiredData(input[0],input[1],function (err,finalData) {
+            if(err){
+                res.send(err);
+            }else{
+                res.send(finalData);
+            }
+        })
+    }else{
+        res.send('invalid input');
+    }
+
+});
+
+
+
+function getRequiredData(val1,val2,cb2){
+    getDataFromOxford(val1, val2, function (err, output) {
+        var requiredData = getFramedOutput(output, types[val2]);
+        if(requiredData){
+            var obj = {};
+            obj[types[val2]] = requiredData;
+           cb2(null,obj);
         }else{
-            logger.log("word not found in dict");
+           var msg = "word not found in dict";
+            cb2(msg,null);
         }
 
     })
-});
-
-
-router.post("/getAntonyms", function (req, res) {
-
-});
-
-router.post("/getDefinition", function (req, res) {
-
-});
-
-router.post("/getExamples", function (req, res) {
-
-});
+}
 
 router.post("/getFullDict", function (req, res) {
+    var input = req.body.word;
+    async.parallel([
+            function(callback) {
+               getRequiredData(input,1,callback)
+            },
+            function(callback) {
+                getRequiredData(input,2,callback);
+                },
+            function (callback) {
+                getRequiredData(input,3,callback);
+            },function (callback) {
+                getRequiredData(input,4,callback);
+            }
 
+        ],
+        function(err, results) {
+        console.log("ok");
+        if(err){
+            res.send(err);
+        }else{
+            res.send(results);
+        }
+        });
 });
 
 router.post("/getWordOftheDayDict", function (req, res) {
@@ -77,13 +111,32 @@ router.post("/getWordOftheDayDict", function (req, res) {
 
 router.post("/wordGame", function (req, res) {
 
-
 });
 
 
 function getInputWordFromReq(req) {
-    return req.body.word;
+    var out = [];
+    out.push(req.body.word);
+    out.push(req.body.type);
+    return out;
 }
+
+
+function valid(input) {
+    return input !== null && input !== undefined;
+}
+
+
+function validType(val) {
+        return [1,2,3,4].includes(val);
+}
+
+
+
+
+
+
+
 
 
 function getFramedOutput(output, type) {
@@ -91,13 +144,29 @@ function getFramedOutput(output, type) {
     try{
         var lexicalEntries = JSON.parse(output).results[0].lexicalEntries;
         lexicalEntries.forEach(function (lexicalEntry) {
-            lexicalEntry.entries.forEach(function (entry) {
-                entry.senses.forEach(function (sense) {
-                    sense['' + type].forEach(function (obj) {
-                        finalOutput.push(obj["id"]);
-                    })
+            if(type === types['4']) {
+                lexicalEntry['' + type].forEach(function (sentence) {
+                    finalOutput.push(sentence['text']);
                 })
-            })
+            }else{
+                lexicalEntry.entries.forEach(function (entry) {
+                    JSON.stringify(entry);
+
+                    entry.senses.forEach(function (sense) {
+                        // finalOutput.push(sense['' + type][0])
+                        if(type === types['3']){
+                            finalOutput.push(sense['' + type][0])
+                        }
+                        else{
+                            sense['' + type].forEach(function (obj) {
+                                finalOutput.push(obj['id']);
+                            })
+                        }
+
+                    })
+
+                })
+            }
         });
         return finalOutput;
     }catch (e) {
@@ -106,7 +175,9 @@ function getFramedOutput(output, type) {
 
 }
 
-function getDataFromOxford(searchInput, type, cb) {
+function getDataFromOxford(searchInput, typeFlag, cb) {
+
+    var type = types[typeFlag];
 
     var path = "/api/v1/entries/en/" + searchInput + "/" + type + "";
 

@@ -9,12 +9,15 @@
   "author": "venkatesh latchireddi",
   "license": "ISC",
   "dependencies": {
+    "async": "^2.6.1",
     "body-parser": "^1.18.3",
     "csv-reader": "^1.0.3",
     "express": "^4.16.4",
     "https": "^1.0.0",
     "morgan": "^1.9.1",
     "path": "^0.12.7",
+    "promises": "^0.2.5",
+    "prompt": "^1.0.0",
     "random-number": "0.0.9",
     "request": "^2.88.0",
     "tracer": "^0.9.6"
